@@ -22,11 +22,29 @@ Browser
 
 ## Quick Start
 
-### Prerequisites
+### Replit Deployment (Recommended)
+
+This project is configured to run on Replit with automatic deployment:
+
+1. Open the project in Replit
+2. Click the "Run" button - it will automatically:
+   - Install backend dependencies (FastAPI, SQLAlchemy, etc.)
+   - Install frontend dependencies (React, Vite, etc.)
+   - Build the frontend for production
+   - Start the backend server on port 5000
+   - Serve the built frontend through the backend
+
+The app will be available at your Replit URL at port 80.
+
+### Local Docker Development
+
+For local development with full Docker stack:
+
+#### Prerequisites
 - Docker Desktop (or Docker Engine + Compose v2)
 - Ports 80 and 8200 free on your machine
 
-### 1. Clone & run
+#### 1. Clone & run
 
 ```bash
 git clone <your-repo>
@@ -36,7 +54,7 @@ docker compose up --build
 
 First build takes 3–5 minutes (npm install + pip install). Subsequent starts are instant.
 
-### 2. Open the app
+#### 2. Open the app
 
 | URL | Description |
 |-----|-------------|
@@ -44,7 +62,7 @@ First build takes 3–5 minutes (npm install + pip install). Subsequent starts a
 | http://localhost:8200 | HashiCorp Vault UI (token: `root-dev-token`) |
 | http://localhost/api/docs | FastAPI Swagger UI |
 
-### 3. Demo credentials
+### Demo credentials
 
 All demo passwords: **`password123`**
 
