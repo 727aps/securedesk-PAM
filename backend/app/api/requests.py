@@ -30,7 +30,9 @@ from app.schemas.schemas import (
     OTPChallengeOut, AuditLogOut,
 )
 from app.services import vault_service, audit_service
+from app.services.email_service import send_otp_email
 from app.core.config import get_settings
+from app.core.security import hash_password, verify_password
 
 router = APIRouter(prefix="/requests", tags=["requests"])
 settings = get_settings()
@@ -130,14 +132,23 @@ async def issue_otp(
     if not req or req.status != "pending":
         raise HTTPException(400, "Request not found or not pending")
 
+    # Load requester to get their email
+    from app.models.user import User as UserModel
+    requester_result = await db.execute(select(UserModel).where(UserModel.id == req.requester_id))
+    requester = requester_result.scalar_one_or_none()
+
     # Generate a 6-digit OTP
     otp_code = "".join(secrets.choice(string.digits) for _ in range(6))
     expires_at = datetime.now(timezone.utc) + timedelta(seconds=settings.OTP_TTL_SECONDS)
 
+    # Hash the OTP before storing (Phase 5 security)
+    hashed_otp = hash_password(otp_code)
+
     challenge = OTPChallenge(
         request_id=request_id,
-        otp_code=otp_code,
+        otp_code=hashed_otp,
         expires_at=expires_at,
+        attempts=0,
     )
     db.add(challenge)
 
@@ -147,13 +158,23 @@ async def issue_otp(
         actor_id=current_user.id,
         actor_name=current_user.full_name,
         request_id=request_id,
-        details={"method": "otp"},
+        details={"method": "email_otp"},
     )
 
+    # Send OTP via email
+    email_sent = False
+    if requester and requester.email:
+        email_sent = send_otp_email(
+            to_email=requester.email,
+            otp_code=otp_code,
+            requester_name=requester.full_name,
+            system_name=req.system_name,
+        )
+
     return OTPChallengeOut(
-        otp_code=otp_code,
         expires_at=expires_at,
-        message="Read this code to the caller over the helpdesk call. Do NOT share via SMS or email.",
+        message=f"OTP sent to user's email ({requester.email if requester else 'unknown'}). Ask them to read it back to you.",
+        email_sent=email_sent,
     )
 
 
@@ -171,19 +192,47 @@ async def verify_otp(
             OTPChallenge.request_id == request_id,
             OTPChallenge.used == False,
             OTPChallenge.expires_at > now,
-        ).order_by(desc(OTPChallenge.issued_at))
+        ).order_by(desc(OTPChallenge.issued_at)).limit(1)
     )
-    challenge = result.scalar_one_or_none()
+    challenge = result.scalars().first()
 
-    if not challenge or challenge.otp_code != payload.otp_code:
+    if not challenge:
         await audit_service.log_event(
             db,
             event_type=audit_service.OTP_FAILED,
             actor_id=current_user.id,
             actor_name=current_user.full_name,
             request_id=request_id,
+            details={"reason": "no_active_challenge"},
         )
-        raise HTTPException(400, "Invalid or expired OTP code")
+        raise HTTPException(400, "No active OTP found. Please issue a new one.")
+
+    # Check max attempts (Phase 5 security)
+    if challenge.attempts >= settings.OTP_MAX_ATTEMPTS:
+        challenge.used = True  # invalidate after too many attempts
+        await audit_service.log_event(
+            db,
+            event_type=audit_service.OTP_FAILED,
+            actor_id=current_user.id,
+            actor_name=current_user.full_name,
+            request_id=request_id,
+            details={"reason": "max_attempts_exceeded"},
+        )
+        raise HTTPException(400, f"OTP invalidated after {settings.OTP_MAX_ATTEMPTS} failed attempts. Please issue a new one.")
+
+    # Verify hashed OTP
+    if not verify_password(payload.otp_code, challenge.otp_code):
+        challenge.attempts = (challenge.attempts or 0) + 1
+        remaining = settings.OTP_MAX_ATTEMPTS - challenge.attempts
+        await audit_service.log_event(
+            db,
+            event_type=audit_service.OTP_FAILED,
+            actor_id=current_user.id,
+            actor_name=current_user.full_name,
+            request_id=request_id,
+            details={"attempts": challenge.attempts},
+        )
+        raise HTTPException(400, f"Invalid OTP code. {remaining} attempt(s) remaining.")
 
     challenge.used = True
 
@@ -199,7 +248,7 @@ async def verify_otp(
         actor_id=current_user.id,
         actor_name=current_user.full_name,
         request_id=request_id,
-        details={"method": "otp"},
+        details={"method": "email_otp"},
     )
 
     return {"verified": True, "message": "Caller identity confirmed via OTP"}

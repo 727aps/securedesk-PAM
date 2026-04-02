@@ -107,6 +107,11 @@ class AuditLogOut(BaseModel):
 
 # ─── OTP Challenge ────────────────────────────────────────────────────────────
 class OTPChallengeOut(BaseModel):
-    otp_code: str
     expires_at: datetime
     message: str
+    email_sent: bool = False
+
+
+# ─── Google OAuth ──────────────────────────────────────────────────────────────
+class GoogleAuthRequest(BaseModel):
+    credential: str

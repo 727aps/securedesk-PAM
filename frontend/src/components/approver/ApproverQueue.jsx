@@ -4,13 +4,13 @@ import {
   listRequests, issueOTP, verifyOTP,
   approveRequest, rejectRequest
 } from '../../services/api'
-import { StatusBadge, TimeAgo, OTPDisplay, Spinner } from '../shared/StatusBadge'
+import { StatusBadge, TimeAgo, Spinner } from '../shared/StatusBadge'
 
 export default function ApproverQueue() {
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
-  const [activeOTP, setActiveOTP] = useState(null)  // { code, expires_at }
+  const [activeOTP, setActiveOTP] = useState(null)  // { expires_at, message, email_sent }
   const [otpInput, setOtpInput] = useState('')
   const [otpVerified, setOtpVerified] = useState(false)
   const [approveForm, setApproveForm] = useState({ approved_ttl: 3600, notes: '' })
@@ -248,11 +248,29 @@ export default function ApproverQueue() {
                           style={{ display: 'flex', alignItems: 'center', gap: '7px' }}
                         >
                           {actionLoading ? <Spinner size={13} /> : <Phone size={13} />}
-                          Issue verification OTP
+                          Send OTP to user's email
                         </button>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                          <OTPDisplay code={activeOTP.otp_code} expiresAt={activeOTP.expires_at} />
+                          {/* Email sent confirmation */}
+                          <div style={{
+                            background: 'var(--bg3)',
+                            border: '1px solid rgba(0,212,255,0.25)',
+                            borderRadius: '8px',
+                            padding: '14px 16px',
+                          }}>
+                            <div style={{ fontSize: '11px', color: 'var(--accent)', fontFamily: 'var(--font-mono)', marginBottom: '6px', letterSpacing: '0.05em' }}>
+                              OTP SENT VIA EMAIL
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: '1.5' }}>
+                              {activeOTP.message}
+                            </div>
+                            {activeOTP.email_sent === false && (
+                              <div style={{ fontSize: '11px', color: 'var(--amber)', marginTop: '6px' }}>
+                                ⚠ Email delivery failed — SMTP may not be configured.
+                              </div>
+                            )}
+                          </div>
 
                           <div className="form-group">
                             <label className="form-label">Enter code the caller reads back</label>
@@ -264,6 +282,7 @@ export default function ApproverQueue() {
                               className="mono"
                               style={{ fontSize: '18px', letterSpacing: '0.2em', textAlign: 'center' }}
                               maxLength={6}
+                              autoFocus
                               onKeyDown={e => e.key === 'Enter' && otpInput.length === 6 && handleVerifyOTP()}
                             />
                           </div>
@@ -284,7 +303,7 @@ export default function ApproverQueue() {
                               disabled={actionLoading}
                               style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                             >
-                              <RefreshCw size={12} /> New OTP
+                              <RefreshCw size={12} /> Resend OTP
                             </button>
                           </div>
                         </div>

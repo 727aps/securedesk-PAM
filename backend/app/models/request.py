@@ -55,10 +55,11 @@ class OTPChallenge(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     request_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("access_requests.id"), nullable=False)
-    otp_code: Mapped[str] = mapped_column(String(8), nullable=False)
+    otp_code: Mapped[str] = mapped_column(String(128), nullable=False)  # hashed
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     used: Mapped[bool] = mapped_column(Boolean, default=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
 
     request: Mapped["AccessRequest"] = relationship("AccessRequest", back_populates="otp_challenges")
 

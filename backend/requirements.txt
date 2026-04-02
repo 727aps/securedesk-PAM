@@ -16,3 +16,4 @@ python-dotenv==1.0.1
 pyotp==2.9.0
 passlib[bcrypt]==1.7.4
 bcrypt==3.2.2
+google-auth==2.29.0

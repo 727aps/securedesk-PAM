@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { login as apiLogin } from '../services/api'
+import { login as apiLogin, googleLogin as apiGoogleLogin } from '../services/api'
 
 const useAuthStore = create((set) => ({
   user: (() => {
@@ -19,6 +19,21 @@ const useAuthStore = create((set) => ({
       return data.user
     } catch (err) {
       const msg = err.response?.data?.detail || 'Login failed'
+      set({ error: msg, loading: false })
+      throw new Error(msg)
+    }
+  },
+
+  googleLogin: async (credential) => {
+    set({ loading: true, error: null })
+    try {
+      const data = await apiGoogleLogin(credential)
+      localStorage.setItem('pam_token', data.access_token)
+      localStorage.setItem('pam_user', JSON.stringify(data.user))
+      set({ user: data.user, token: data.access_token, loading: false })
+      return data.user
+    } catch (err) {
+      const msg = err.response?.data?.detail || 'Google login failed'
       set({ error: msg, loading: false })
       throw new Error(msg)
     }

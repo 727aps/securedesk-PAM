@@ -33,6 +33,18 @@ class Settings(BaseSettings):
 
     # OTP TTL for caller verification
     OTP_TTL_SECONDS: int = 300
+    OTP_MAX_ATTEMPTS: int = 5
+
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = ""
+    FRONTEND_URL: str = "http://localhost"
+
+    # SMTP / Email
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_EMAIL: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
 
     def model_post_init(self, __context):
         object.__setattr__(self, "DATABASE_URL", _fix_db_url(self.DATABASE_URL))

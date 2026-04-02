@@ -1,18 +1,60 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Shield, Lock, User } from 'lucide-react'
 import useAuthStore from '../store/authStore'
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
+
 export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const { login, loading, error } = useAuthStore()
+  const { login, googleLogin, loading, error } = useAuthStore()
   const navigate = useNavigate()
+  const googleBtnRef = useRef(null)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
       const user = await login(username, password)
+      navigate(user.role === 'user' ? '/dashboard' : '/approver')
+    } catch {}
+  }
+
+  // Initialize Google Identity Services SDK
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return
+    const scriptId = 'google-gsi-script'
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script')
+      script.id = scriptId
+      script.src = 'https://accounts.google.com/gsi/client'
+      script.async = true
+      script.defer = true
+      script.onload = initGoogle
+      document.head.appendChild(script)
+    } else {
+      initGoogle()
+    }
+  }, [])
+
+  const initGoogle = () => {
+    if (!window.google || !GOOGLE_CLIENT_ID || !googleBtnRef.current) return
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleResponse,
+    })
+    window.google.accounts.id.renderButton(googleBtnRef.current, {
+      theme: 'filled_black',
+      size: 'large',
+      width: 336,
+      text: 'signin_with',
+      shape: 'rectangular',
+    })
+  }
+
+  const handleGoogleResponse = async (response) => {
+    try {
+      const user = await googleLogin(response.credential)
       navigate(user.role === 'user' ? '/dashboard' : '/approver')
     } catch {}
   }
@@ -92,6 +134,20 @@ export default function LoginPage() {
               {loading ? 'Authenticating...' : 'Authenticate'}
             </button>
           </form>
+
+          {/* Google Sign-In */}
+          {GOOGLE_CLIENT_ID && (
+            <div style={styles.googleSection}>
+              <div style={styles.dividerRow}>
+                <div style={styles.dividerLine} />
+                <span style={styles.dividerText}>or</span>
+                <div style={styles.dividerLine} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <div ref={googleBtnRef} />
+              </div>
+            </div>
+          )}
 
           <hr className="divider" style={{ margin: '16px 0' }} />
           <div style={styles.demoHint}>
@@ -174,6 +230,10 @@ const styles = {
   form: { padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' },
   inputWrap: { position: 'relative' },
   inputIcon: { position: 'absolute', top: '50%', left: '10px', transform: 'translateY(-50%)', pointerEvents: 'none' },
+  googleSection: { padding: '0 24px 16px' },
+  dividerRow: { display: 'flex', alignItems: 'center', gap: '10px', margin: '0 0 14px' },
+  dividerLine: { flex: 1, height: '1px', background: 'var(--border)' },
+  dividerText: { color: 'var(--text3)', fontSize: '11px', fontFamily: 'var(--font-mono)' },
   demoHint: { padding: '0 24px 20px' },
   demoRow: {
     display: 'flex', alignItems: 'center', gap: '10px',

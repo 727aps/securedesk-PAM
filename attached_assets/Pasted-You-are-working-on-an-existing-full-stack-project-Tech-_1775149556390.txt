@@ -1,0 +1,174 @@
+You are working on an existing full-stack project:
+
+Tech stack:
+- Backend: FastAPI
+- Frontend: React (Vite)
+- Database: PostgreSQL
+- Infra: Docker
+
+The project is already working with:
+- JWT authentication
+- Request → Approval → Checkout flow
+- Audit logs
+- Vault integration
+
+IMPORTANT CONSTRAINTS:
+- Do NOT break existing functionality
+- Do NOT refactor unrelated code
+- Make minimal, modular changes
+- Follow current project structure
+
+---
+
+IMPLEMENTATION STRATEGY (VERY IMPORTANT):
+
+Follow this order strictly:
+
+PHASE 1: Analyze the repository
+- Identify key files:
+  - auth.py (login logic)
+  - security.py (JWT/password)
+  - models/user.py
+  - api/requests.py
+  - frontend/src/pages/LoginPage.jsx
+- Understand how login and OTP currently work
+- DO NOT change anything yet
+
+---
+
+PHASE 2: Database Migration (MANDATORY FIRST STEP)
+
+Use explicit SQL migration (DO NOT auto-migrate)
+
+Add columns to users table:
+
+ALTER TABLE users ADD COLUMN email VARCHAR UNIQUE;
+ALTER TABLE users ADD COLUMN auth_provider VARCHAR DEFAULT 'local';
+
+Ensure:
+- Existing users are not broken
+- email can be nullable initially
+
+---
+
+PHASE 3: Google OAuth Login (Frontend SDK flow)
+
+IMPORTANT DESIGN:
+Frontend uses Google SDK → backend verifies token → returns JWT
+
+DO NOT implement redirect/callback OAuth flow.
+
+---
+
+Backend Tasks:
+1. Add endpoint: POST /auth/google
+2. Accept Google ID token from frontend
+3. Verify token using google-auth library
+4. Extract:
+   - email
+   - name
+5. If user does not exist:
+   - create user (email + auth_provider='google')
+6. If exists:
+   - login user
+7. Issue JWT (same as current login)
+
+---
+
+Frontend Tasks:
+1. Use Google Identity Services SDK
+2. Add script:
+   https://accounts.google.com/gsi/client
+3. Add "Sign in with Google" button
+4. On success:
+   - receive credential (ID token)
+   - send to backend /auth/google
+5. Store returned JWT
+
+IMPORTANT:
+- Use VITE_GOOGLE_CLIENT_ID
+- Ensure button is clickable and initialized in useEffect
+
+---
+
+PHASE 4: Email-based OTP (Replace current OTP display)
+
+Current:
+- OTP shown in UI ❌
+
+New:
+- OTP sent via email ✅
+
+---
+
+Backend Tasks:
+1. Modify endpoint: /requests/{id}/otp
+2. Generate OTP
+3. Store OTP in DB
+4. Send OTP via Gmail SMTP
+
+Create:
+services/email_service.py
+
+Use:
+- SMTP_HOST
+- SMTP_PORT
+- SMTP_EMAIL
+- SMTP_PASSWORD
+
+---
+
+OTP Verification:
+- Keep existing /verify-otp endpoint
+- Validate entered OTP
+
+---
+
+Frontend Tasks:
+- Remove OTP display
+- Add input field for OTP
+- Show message: "OTP sent to user's email"
+
+---
+
+PHASE 5: Security Enhancements
+
+- Hash OTP before storing
+- Add expiry (OTP_TTL_SECONDS=300)
+- Add max attempts (OTP_MAX_ATTEMPTS=5)
+
+---
+
+PHASE 6: Preserve Full Flow
+
+Ensure this still works:
+
+User → Request → Admin → OTP → Verify → Approve → Checkout → TTL revoke
+
+---
+
+ENV CONFIG (USE THESE VALUES):
+
+GOOGLE_CLIENT_ID=431643847341-ljrd2viuoqh03pmebdn4c3m2l8jooj7m.apps.googleusercontent.com
+FRONTEND_URL=http://localhost
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_EMAIL=s72799107@gmail.com
+SMTP_PASSWORD=avgqrlpvbelhjiyc
+SMTP_USE_TLS=true
+
+OTP_TTL_SECONDS=300
+OTP_MAX_ATTEMPTS=5
+
+---
+
+OUTPUT REQUIREMENTS:
+
+1. First provide a clear implementation plan
+2. Then implement step-by-step
+3. For each step:
+   - Mention exact files modified
+   - Show only necessary code changes
+4. Do NOT rewrite full files
+5. Do NOT refactor unrelated code

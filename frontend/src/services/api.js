@@ -32,6 +32,9 @@ export const login = (username, password) =>
 export const getMe = () =>
   api.get('/auth/me').then((r) => r.data)
 
+export const googleLogin = (credential) =>
+  api.post('/auth/google', { credential }).then((r) => r.data)
+
 // ─── Requests ─────────────────────────────────────────────────────────────────
 export const createRequest = (data) =>
   api.post('/requests', data).then((r) => r.data)
