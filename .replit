@@ -1,0 +1,49 @@
+modules = ["nodejs-20", "python-3.12", "web", "bash", "postgresql-16"]
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+VAULT_ADDR = "http://localhost:8200"
+VAULT_TOKEN = "root-dev-token"
+SECRET_KEY = "changeme-in-production-use-32-char-secret"
+ACCESS_TOKEN_EXPIRE_MINUTES = "60"
+REDIS_URL = "redis://localhost:6379/0"
+PORT = "8000"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash start.sh"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["bash", "-c", "cd backend && DATABASE_URL=$(echo $DATABASE_URL | sed 's|postgresql://|postgresql+asyncpg://|;s|postgres://|postgresql+asyncpg://|;s|[?&]sslmode=[^&]*||') uvicorn app.main:app --host 0.0.0.0 --port 5000"]
+build = ["bash", "-c", "cd frontend && npm install && npm run build"]

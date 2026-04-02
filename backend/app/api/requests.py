@@ -358,9 +358,14 @@ async def revoke_request(
     )
 
     # Dispatch Celery task to actually revoke the Vault token
+    # (falls back to direct revocation if Redis/Celery is unavailable)
     if token:
-        from app.celery_app import revoke_single_token
-        revoke_single_token.delay(str(request_id), token)
+        try:
+            from app.celery_app import revoke_single_token
+            revoke_single_token.delay(str(request_id), token)
+        except Exception:
+            from app.services import vault_service as _vs
+            _vs.revoke_token(token)
 
     return {"revoked": True, "request_id": str(request_id)}
 
